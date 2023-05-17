@@ -1,0 +1,44 @@
+name: Deploy Prod Apps
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    name: Deploy apps to prod
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - uses: php-actions/composer@v6
+
+      - name: Install Node.js
+        uses: actions/setup-node@v1
+        with:
+          node-version: '16.x'
+
+      - name: Install libnotify
+        run: sudo apt-get install libnotify-bin
+
+      - name: Install npm dependencies
+        run: cd wp-content/themes/news-theme && npm install
+
+      - name: Pinning Queue
+        run: cd wp-content/themes/news-theme/platform-apps/pinning-queue && npm install && npm run build
+
+      - name: Locality Selector
+        run: cd wp-content/themes/news-theme/platform-apps/locality-selector && npm install && npm run build
+
+      - name: Deploy
+        uses: easingthemes/ssh-deploy@main
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+          ARGS: >-  
+            -rltgoDzvO
+            --exclude='.git'
+            --exclude='node_modules/'
+          REMOTE_HOST: ${{ secrets.HOST_DNS }}
+          REMOTE_USER: ${{ secrets.USERNAME }}
+          TARGET: /opt/bitnami/wordpress/
